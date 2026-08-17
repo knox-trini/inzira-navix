@@ -8,14 +8,14 @@ import {
   type ReactNode,
 } from "react";
 
-export type AuthUser = { id: string; name: string; email: string };
+export type AuthUser = { id: string; name: string; email: string; username: string; provider?: AuthProviderName };
 export type AuthProviderName = "google" | "instagram" | "linkedin" | "slack" | "whatsapp";
-type StoredUser = AuthUser & { password?: string; provider?: AuthProviderName };
+type StoredUser = AuthUser & { password?: string; provider?: AuthProviderName; username: string };
 
 type AuthCtx = {
   user: AuthUser | null;
-  signIn: (email: string, password: string) => { ok: true } | { ok: false; error: "invalid" };
-  signUp: (name: string, email: string, password: string) => { ok: true } | { ok: false; error: "exists" };
+  signIn: (username: string, password: string) => { ok: true } | { ok: false; error: "invalid" };
+  signUp: (name: string, username: string, password: string) => { ok: true } | { ok: false; error: "exists" };
   signInWithProvider: (provider: AuthProviderName) => { ok: true } | { ok: false; error: "invalid" };
   signOut: () => void;
 };
@@ -112,26 +112,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(
-    (email: string, password: string) => {
+    (username: string, password: string) => {
       const users = readUsers();
-      const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      const found = users.find(
+        (u) =>
+          (u.username || u.email || "").toLowerCase() === username.trim().toLowerCase() && u.password === password,
+      );
       if (!found) return { ok: false as const, error: "invalid" as const };
-      persist({ id: found.id, name: found.name, email: found.email });
+      persist({
+        id: found.id,
+        name: found.name,
+        email: found.email || `${found.username}@inziranavix.local`,
+        username: found.username || found.email || "user",
+        provider: found.provider,
+      });
       return { ok: true as const };
     },
     [persist],
   );
 
   const signUp = useCallback(
-    (name: string, email: string, password: string) => {
+    (name: string, username: string, password: string) => {
       const users = readUsers();
-      if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+      const safeUsername = username.trim();
+      if (users.some((u) => (u.username || u.email || "").toLowerCase() === safeUsername.toLowerCase())) {
         return { ok: false as const, error: "exists" as const };
       }
-      const nu: StoredUser = { id: crypto.randomUUID(), name, email, password };
+      const nu: StoredUser = {
+        id: crypto.randomUUID(),
+        name,
+        username: safeUsername,
+        email: `${safeUsername}@inziranavix.local`,
+        password,
+      };
       users.push(nu);
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      persist({ id: nu.id, name: nu.name, email: nu.email });
+      persist({
+        id: nu.id,
+        name: nu.name,
+        email: nu.email,
+        username: nu.username,
+      });
       return { ok: true as const };
     },
     [persist],
@@ -144,18 +165,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const existing = users.find((u) => u.email.toLowerCase() === socialUser.email.toLowerCase());
 
       if (existing) {
-        persist({ id: existing.id, name: existing.name, email: existing.email });
+        persist({
+          id: existing.id,
+          name: existing.name,
+          email: existing.email,
+          username: existing.username || existing.email,
+          provider: existing.provider,
+        });
         return { ok: true as const };
       }
 
       const nextUser: StoredUser = {
         ...socialUser,
         id: crypto.randomUUID(),
+        username: socialUser.email,
       };
 
       users.push(nextUser);
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      persist({ id: nextUser.id, name: nextUser.name, email: nextUser.email });
+      persist({
+        id: nextUser.id,
+        name: nextUser.name,
+        email: nextUser.email,
+        username: nextUser.username,
+        provider: nextUser.provider,
+      });
       return { ok: true as const };
     },
     [persist],
