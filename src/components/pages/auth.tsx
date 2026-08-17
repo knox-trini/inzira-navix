@@ -142,7 +142,7 @@ export function AuthPage() {
   const { t } = useTranslation();
   const { user, signIn, signUp } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const [mode, setMode] = useState<"in" | "up">("up");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -211,6 +211,10 @@ export function AuthPage() {
             {t("auth.tabSignUp")}
           </button>
         </div>
+
+        <p className="mt-4 text-sm text-muted-foreground">
+          Create an account first to access the system. Existing users can switch to sign in below.
+        </p>
 
         <h2 className="mt-6 font-display text-2xl font-bold lg:hidden">
           {mode === "in" ? t("auth.signInTitle") : t("auth.signUpTitle")}
