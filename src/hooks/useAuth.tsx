@@ -8,15 +8,39 @@ import {
   type ReactNode,
 } from "react";
 
-export type AuthUser = { id: string; name: string; email: string; username: string; provider?: AuthProviderName };
-export type AuthProviderName = "google" | "instagram" | "linkedin" | "slack" | "whatsapp";
-type StoredUser = AuthUser & { password?: string; provider?: AuthProviderName; username: string };
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  username: string;
+  provider?: AuthProviderName;
+};
+
+export type AuthProviderName =
+  | "google"
+  | "instagram"
+  | "linkedin"
+  | "slack"
+  | "whatsapp";
+
+type StoredUser = AuthUser & {
+  password?: string;
+};
 
 type AuthCtx = {
   user: AuthUser | null;
-  signIn: (username: string, password: string) => { ok: true } | { ok: false; error: "invalid" };
-  signUp: (name: string, username: string, password: string) => { ok: true } | { ok: false; error: "exists" };
-  signInWithProvider: (provider: AuthProviderName) => { ok: true } | { ok: false; error: "invalid" };
+  signIn: (
+    username: string,
+    password: string,
+  ) => { ok: true } | { ok: false; error: "invalid" };
+  signUp: (
+    name: string,
+    username: string,
+    password: string,
+  ) => { ok: true } | { ok: false; error: "exists" };
+  signInWithProvider: (
+    provider: AuthProviderName,
+  ) => { ok: true } | { ok: false; error: "invalid" };
   signOut: () => void;
 };
 
@@ -37,10 +61,13 @@ const providerLabels: Record<AuthProviderName, string> = {
 function buildProviderUser(provider: AuthProviderName): StoredUser {
   const label = providerLabels[provider];
   const suffix = `${label.toLowerCase().replace(/\s+/g, "")}.local`;
+  const email = `${provider}@${suffix}`;
+
   return {
     id: crypto.randomUUID(),
     name: `${label} user`,
-    email: `${provider}@${suffix}`,
+    email,
+    username: email,
     provider,
     password: "social-auth",
   };
@@ -48,6 +75,7 @@ function buildProviderUser(provider: AuthProviderName): StoredUser {
 
 function readUsers(): StoredUser[] {
   if (typeof window === "undefined") return [];
+
   try {
     return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
   } catch {
@@ -56,15 +84,20 @@ function readUsers(): StoredUser[] {
 }
 
 let cachedUser: AuthUser | null = null;
+
 function readCurrentUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
+
   try {
     const raw = localStorage.getItem(CURRENT_KEY);
+
     if (!raw) {
       cachedUser = null;
       return null;
     }
+
     const next = JSON.parse(raw) as AuthUser;
+
     if (
       !cachedUser ||
       cachedUser.id !== next.id ||
@@ -73,6 +106,7 @@ function readCurrentUser(): AuthUser | null {
     ) {
       cachedUser = next;
     }
+
     return cachedUser;
   } catch {
     return null;
@@ -81,8 +115,10 @@ function readCurrentUser(): AuthUser | null {
 
 function subscribe(callback: () => void) {
   if (typeof window === "undefined") return () => {};
+
   window.addEventListener("storage", callback);
   window.addEventListener(AUTH_EVENT, callback);
+
   return () => {
     window.removeEventListener("storage", callback);
     window.removeEventListener(AUTH_EVENT, callback);
@@ -98,15 +134,25 @@ function getServerSnapshot(): AuthUser | null {
 }
 
 function notify() {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(AUTH_EVENT));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_EVENT));
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const user = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const user = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   const persist = useCallback((u: AuthUser | null) => {
-    if (u) localStorage.setItem(CURRENT_KEY, JSON.stringify(u));
-    else localStorage.removeItem(CURRENT_KEY);
+    if (u) {
+      localStorage.setItem(CURRENT_KEY, JSON.stringify(u));
+    } else {
+      localStorage.removeItem(CURRENT_KEY);
+    }
+
     cachedUser = u;
     notify();
   }, []);
@@ -114,11 +160,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     (username: string, password: string) => {
       const users = readUsers();
+
       const found = users.find(
         (u) =>
-          (u.username || u.email || "").toLowerCase() === username.trim().toLowerCase() && u.password === password,
+          (u.username || u.email || "").toLowerCase() ===
+            username.trim().toLowerCase() &&
+          u.password === password,
       );
-      if (!found) return { ok: false as const, error: "invalid" as const };
+
+      if (!found) {
+        return {
+          ok: false as const,
+          error: "invalid" as const,
+        };
+      }
+
       persist({
         id: found.id,
         name: found.name,
@@ -126,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: found.username || found.email || "user",
         provider: found.provider,
       });
+
       return { ok: true as const };
     },
     [persist],
@@ -135,9 +192,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (name: string, username: string, password: string) => {
       const users = readUsers();
       const safeUsername = username.trim();
-      if (users.some((u) => (u.username || u.email || "").toLowerCase() === safeUsername.toLowerCase())) {
-        return { ok: false as const, error: "exists" as const };
+
+      if (
+        users.some(
+          (u) =>
+            (u.username || u.email || "").toLowerCase() ===
+            safeUsername.toLowerCase(),
+        )
+      ) {
+        return {
+          ok: false as const,
+          error: "exists" as const,
+        };
       }
+
       const nu: StoredUser = {
         id: crypto.randomUUID(),
         name,
@@ -145,14 +213,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: `${safeUsername}@inziranavix.local`,
         password,
       };
+
       users.push(nu);
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
       persist({
         id: nu.id,
         name: nu.name,
         email: nu.email,
         username: nu.username,
       });
+
       return { ok: true as const };
     },
     [persist],
@@ -162,7 +233,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (provider: AuthProviderName) => {
       const users = readUsers();
       const socialUser = buildProviderUser(provider);
-      const existing = users.find((u) => u.email.toLowerCase() === socialUser.email.toLowerCase());
+
+      const existing = users.find(
+        (u) =>
+          u.email.toLowerCase() === socialUser.email.toLowerCase(),
+      );
 
       if (existing) {
         persist({
@@ -172,6 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: existing.username || existing.email,
           provider: existing.provider,
         });
+
         return { ok: true as const };
       }
 
@@ -183,6 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       users.push(nextUser);
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
       persist({
         id: nextUser.id,
         name: nextUser.name,
@@ -190,6 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: nextUser.username,
         provider: nextUser.provider,
       });
+
       return { ok: true as const };
     },
     [persist],
@@ -197,13 +275,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => persist(null), [persist]);
 
-  const value: AuthCtx = { user, signIn, signUp, signInWithProvider, signOut };
+  const value: AuthCtx = {
+    user,
+    signIn,
+    signUp,
+    signInWithProvider,
+    signOut,
+  };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {
   const c = useContext(Ctx);
-  if (!c) throw new Error("useAuth must be used within AuthProvider");
+
+  if (!c) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
   return c;
 }
