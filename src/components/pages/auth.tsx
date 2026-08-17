@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAuth, type AuthUser } from "@/hooks/useAuth";
+import { useAuth, type AuthProviderName, type AuthUser } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
 import { notificationFeed } from "@/data/kigali";
 import {
   Mail,
-  Lock,
-  User as UserIcon,
+  Camera,
+  Briefcase,
+  MessageCircle,
   LogOut,
   Bell,
   BrainCircuit,
@@ -140,49 +141,43 @@ function AccountDashboard({ user }: { user: AuthUser }) {
 
 export function AuthPage() {
   const { t } = useTranslation();
-  const { user, signIn, signUp } = useAuth();
+  const { user, signInWithProvider } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<"in" | "up">("up");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   if (user) {
     return <AccountDashboard user={user} />;
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  const socialOptions: Array<{
+    key: AuthProviderName;
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+    accent: string;
+  }> = [
+    { key: "google", label: "Continue with Google", description: "Use your Gmail account", icon: <Mail className="h-4 w-4" />, accent: "#ea4335" },
+    { key: "instagram", label: "Continue with Instagram", description: "Use your Instagram account", icon: <Camera className="h-4 w-4" />, accent: "#d62976" },
+    { key: "linkedin", label: "Continue with LinkedIn", description: "Use your LinkedIn account", icon: <Briefcase className="h-4 w-4" />, accent: "#0a66c2" },
+    { key: "slack", label: "Continue with Slack", description: "Use your Slack workspace", icon: <MessageCircle className="h-4 w-4" />, accent: "#4a154b" },
+    { key: "whatsapp", label: "Continue with WhatsApp", description: "Use your WhatsApp account", icon: <MessageCircle className="h-4 w-4" />, accent: "#25d366" },
+  ];
+
+  function handleProvider(provider: AuthProviderName) {
     setError(null);
     const rawRedirect = new URL(window.location.href).searchParams.get("redirect");
     const redirectTo = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
-    if (mode === "in") {
-      if (!email || !password) return setError(t("auth.errFields"));
-      const r = signIn(email, password);
-      if (!r.ok) return setError(t("auth.errInvalid"));
-      router.push(redirectTo);
-    } else {
-      if (!name || !email || !password || !confirm) return setError(t("auth.errFields"));
-      if (password.length < 6) return setError(t("auth.errShortPw"));
-      if (password !== confirm) return setError(t("auth.errMatch"));
-      const r = signUp(name, email, password);
-      if (!r.ok) return setError(t("auth.errExists"));
-      router.push(redirectTo);
-    }
+    const r = signInWithProvider(provider);
+    if (!r.ok) return setError(t("auth.errInvalid"));
+    router.push(redirectTo);
   }
 
   return (
     <div className="mx-auto grid min-h-[80vh] max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:px-8">
       <div className="hidden lg:block">
         <Logo />
-        <h1 className="mt-8 font-display text-5xl font-bold tracking-tight">
-          {mode === "in" ? t("auth.signInTitle") : t("auth.signUpTitle")}
-        </h1>
-        <p className="mt-4 max-w-md text-lg text-muted-foreground">
-          {mode === "in" ? t("auth.signInBody") : t("auth.signUpBody")}
-        </p>
+        <h1 className="mt-8 font-display text-5xl font-bold tracking-tight">{t("auth.signUpTitle")}</h1>
+        <p className="mt-4 max-w-md text-lg text-muted-foreground">{t("auth.signUpBody")}</p>
         <ul className="mt-8 space-y-3 text-sm text-muted-foreground">
           {[t("home.features.0.t"), t("home.features.2.t"), t("home.features.4.t"), t("home.features.5.t")].map((f) => (
             <li key={f} className="flex items-center gap-3">
@@ -197,96 +192,40 @@ export function AuthPage() {
         <div className="lg:hidden">
           <Logo />
         </div>
-        <div className="mt-6 inline-flex rounded-xl border border-border bg-background p-1 shadow-sm lg:mt-0">
-          <button
-            onClick={() => { setMode("in"); setError(null); }}
-            className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${mode === "in" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {t("auth.tabSignIn")}
-          </button>
-          <button
-            onClick={() => { setMode("up"); setError(null); }}
-            className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${mode === "up" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {t("auth.tabSignUp")}
-          </button>
+
+        <h2 className="mt-6 font-display text-2xl font-bold">{t("auth.signUpTitle")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Create your account with the social account you use every day.</p>
+
+        <div className="mt-6 space-y-3">
+          {socialOptions.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => handleProvider(option.key)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted"
+            >
+              <span className="flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-lg text-white" style={{ background: option.accent }}>
+                  {option.icon}
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-foreground">{option.label}</span>
+                  <span className="block text-xs text-muted-foreground">{option.description}</span>
+                </span>
+              </span>
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Go</span>
+            </button>
+          ))}
         </div>
 
-        <p className="mt-4 text-sm text-muted-foreground">
-          Create an account first to access the system. Existing users can switch to sign in below.
-        </p>
+        {error && (
+          <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
-        <h2 className="mt-6 font-display text-2xl font-bold lg:hidden">
-          {mode === "in" ? t("auth.signInTitle") : t("auth.signUpTitle")}
-        </h2>
-
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          {mode === "up" && (
-            <Field icon={<UserIcon className="h-4 w-4" />} label={t("auth.name")} type="text" value={name} onChange={setName} autoComplete="name" />
-          )}
-          <Field icon={<Mail className="h-4 w-4" />} label={t("auth.email")} type="email" value={email} onChange={setEmail} autoComplete="email" />
-          <Field icon={<Lock className="h-4 w-4" />} label={t("auth.password")} type="password" value={password} onChange={setPassword} autoComplete={mode === "in" ? "current-password" : "new-password"} />
-          {mode === "up" && (
-            <Field icon={<Lock className="h-4 w-4" />} label={t("auth.confirm")} type="password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="press w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)]"
-          >
-            {mode === "in" ? t("auth.signIn") : t("auth.signUp")}
-          </button>
-
-          <p className="text-center text-xs text-muted-foreground">{t("auth.terms")}</p>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          {mode === "in" ? (
-            <>
-              {t("auth.noAccount")}{" "}
-              <button onClick={() => { setMode("up"); setError(null); }} className="font-semibold text-primary hover:underline">
-                {t("auth.signUp")}
-              </button>
-            </>
-          ) : (
-            <>
-              {t("auth.haveAccount")}{" "}
-              <button onClick={() => { setMode("in"); setError(null); }} className="font-semibold text-primary hover:underline">
-                {t("auth.signIn")}
-              </button>
-            </>
-          )}
-        </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">{t("auth.terms")}</p>
       </div>
     </div>
-  );
-}
-
-function Field({
-  icon, label, type, value, onChange, autoComplete,
-}: {
-  icon: React.ReactNode; label: string; type: string; value: string;
-  onChange: (v: string) => void; autoComplete?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40">
-        <span className="text-muted-foreground">{icon}</span>
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoComplete={autoComplete}
-          className="flex-1 bg-transparent text-sm outline-none"
-        />
-      </div>
-    </label>
   );
 }
