@@ -6,10 +6,13 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import i18n, { getInitial } from "@/i18n";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { SiteHeader } from "./SiteHeader";
+import { PublicHeader } from "./PublicHeader";
 import { SiteFooter } from "./SiteFooter";
+import { AppSidebar } from "./AppSidebar";
+import { AppTopNav } from "./AppTopNav";
+import { AiAssistant } from "./ai/AiAssistant";
 
-const PUBLIC_PATHS = new Set(["/", "/auth"]);
+const PUBLIC_PATHS = new Set(["/", "/auth", "/about", "/contact", "/privacy", "/terms"]);
 
 function ClientInit() {
   useEffect(() => {
@@ -38,6 +41,51 @@ function AuthGate() {
   return null;
 }
 
+function AppLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen">
+      <AppSidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppTopNav />
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+function PublicLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen flex-col">
+      <PublicHeader />
+      <main className="flex-1">{children}</main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+function LayoutRouter({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const pathname = usePathname();
+
+  const isAuthPage = pathname === "/auth";
+  const isPublicPage = PUBLIC_PATHS.has(pathname);
+
+  if (isAuthPage) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <PublicHeader />
+        <main className="flex-1">{children}</main>
+      </div>
+    );
+  }
+
+  if (!user || isPublicPage) {
+    return <PublicLayout>{children}</PublicLayout>;
+  }
+
+  return <AppLayout>{children}</AppLayout>;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
@@ -46,11 +94,8 @@ export function Providers({ children }: { children: ReactNode }) {
       <AuthProvider>
         <ClientInit />
         <AuthGate />
-        <div className="flex min-h-screen flex-col">
-          <SiteHeader />
-          <main className="flex-1">{children}</main>
-          <SiteFooter />
-        </div>
+        <LayoutRouter>{children}</LayoutRouter>
+        <AiAssistant />
       </AuthProvider>
     </QueryClientProvider>
   );

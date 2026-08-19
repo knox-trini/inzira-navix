@@ -22,6 +22,13 @@ import {
   Wifi,
   Leaf,
   QrCode,
+  BrainCircuit,
+  MessageCircle,
+  UserCircle,
+  HelpCircle,
+  Smartphone,
+  Monitor,
+  Phone,
 } from "lucide-react";
 import { AnimatedBus } from "@/components/AnimatedBus";
 import { HeroSlideshow } from "@/components/HeroSlideshow";
@@ -503,7 +510,7 @@ export function HomePage() {
             </p>
             <div className="mt-10 flex flex-wrap gap-3">
               <Link
-                href="/planner"
+                href="/auth"
                 className="press sheen rounded-xl bg-amber-400 px-8 py-4 text-sm font-bold text-emerald-950 shadow-lg shadow-amber-400/25"
               >
                 {t("home.ctaPrimary")}
@@ -515,6 +522,185 @@ export function HomePage() {
                 {t("home.ctaSecondary")}
               </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="mx-auto max-w-7xl px-4 py-28 sm:px-6 lg:px-8" id="how-it-works">
+        <div className="max-w-3xl">
+          <Eyebrow>{t("landing.howItWorks.eyebrow")}</Eyebrow>
+          <h2 className="mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
+            {t("landing.howItWorks.title")}
+          </h2>
+          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+            {t("landing.howItWorks.body")}
+          </p>
+        </div>
+
+        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {(t("landing.howItWorks.steps", { returnObjects: true }) as { n: string; t: string; d: string }[]).map((step, i) => (
+            <motion.div
+              key={step.n}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45, delay: i * 0.08 }}
+              className="hairline-top relative overflow-hidden rounded-2xl border border-border/80 bg-card p-8 shadow-[var(--shadow-soft)]"
+            >
+              <span className="pointer-events-none absolute -right-2 -top-6 select-none font-display text-[120px] font-extrabold leading-none text-primary/[0.07]">
+                {step.n}
+              </span>
+              <div className="relative">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
+                  {step.n}
+                </span>
+                <h3 className="mt-5 text-xl font-bold">{step.t}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.d}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* AI ASSISTANT */}
+      <section className="border-y border-border/70 bg-surface" id="ai-assistant">
+        <div className="mx-auto max-w-7xl px-4 py-28 sm:px-6 lg:px-8">
+          <div className="grid gap-16 lg:grid-cols-2">
+            <div>
+              <Eyebrow tone="accent">{t("landing.aiAssistant.eyebrow")}</Eyebrow>
+              <h2 className="mt-5 font-display text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+                {t("landing.aiAssistant.title")}
+              </h2>
+              <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
+                {t("landing.aiAssistant.body")}
+              </p>
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                {(t("landing.aiAssistant.features", { returnObjects: true }) as { t: string; d: string }[]).map((f, i) => (
+                  <motion.div
+                    key={f.t}
+                    initial={{ opacity: 0, y: 12 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: i * 0.06 }}
+                    className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+                  >
+                    <h4 className="text-sm font-bold">{f.t}</h4>
+                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{f.d}</p>
+                  </motion.div>
+                ))}
+              </div>
+              <Link
+                href="/auth"
+                className="press group mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-[var(--shadow-glow)]"
+              >
+                <BrainCircuit className="h-4 w-4" />
+                {t("landing.aiAssistant.cta")}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+
+            {/* AI Conversation Demo */}
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="flex items-center justify-center"
+            >
+              <div className="w-full max-w-md">
+                <div className="overflow-hidden rounded-3xl border border-border/80 bg-card shadow-[var(--shadow-panel)]">
+                  <div className="flex items-center gap-3 border-b border-border/60 bg-primary/5 px-5 py-4">
+                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+                      <BrainCircuit className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold">Inzira AI Assistant</p>
+                      <p className="text-[11px] text-muted-foreground">Always ready to help</p>
+                    </div>
+                    <span className="ml-auto flex items-center gap-1.5 rounded-lg bg-success/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-success-foreground">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" /> Online
+                    </span>
+                  </div>
+                  <div className="space-y-4 px-5 py-6">
+                    <div className="flex justify-end">
+                      <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-sm text-primary-foreground">
+                        {t("landing.aiAssistant.userMessage1")}
+                      </div>
+                    </div>
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-muted px-4 py-3 text-sm">
+                        {t("landing.aiAssistant.aiMessage1")}
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <div className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-3 text-sm text-primary-foreground">
+                        {t("landing.aiAssistant.userMessage2")}
+                      </div>
+                    </div>
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-muted px-4 py-3 text-sm">
+                        {t("landing.aiAssistant.aiMessage2")}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t border-border/60 px-5 py-3">
+                    <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5">
+                      <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground/60">Ask anything...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ACCESSIBILITY / LOW-TECH */}
+      <section className="mx-auto max-w-7xl px-4 py-28 sm:px-6 lg:px-8" id="accessibility">
+        <div className="max-w-3xl">
+          <Eyebrow tone="accent">{t("landing.accessibility.eyebrow")}</Eyebrow>
+          <h2 className="mt-5 font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
+            {t("landing.accessibility.title")}
+          </h2>
+          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
+            {t("landing.accessibility.body")}
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-6 md:grid-cols-3">
+          {(() => {
+            const channels = t("landing.accessibility.channels", { returnObjects: true }) as { t: string; d: string }[];
+            const channelIcons = [Smartphone, Monitor, Phone];
+            return channels.map((ch, i) => {
+              const Icon = channelIcons[i];
+              return (
+                <motion.div
+                  key={ch.t}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-40px" }}
+                  transition={{ duration: 0.45, delay: i * 0.08 }}
+                  className="hairline-top group relative overflow-hidden rounded-2xl border border-border/80 bg-card p-8 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[var(--shadow-panel)]"
+                >
+                  <div className="mb-6 inline-grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-primary transition-transform duration-300 group-hover:scale-110">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-bold">{ch.t}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{ch.d}</p>
+                </motion.div>
+              );
+            });
+          })()}
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-accent/30 bg-accent/5 p-6">
+          <div className="flex items-start gap-3">
+            <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-accent-foreground" />
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {t("landing.accessibility.ussdNote")}
+            </p>
           </div>
         </div>
       </section>

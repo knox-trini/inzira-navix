@@ -12,7 +12,6 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  username: string;
   provider?: AuthProviderName;
 };
 
@@ -30,12 +29,11 @@ type StoredUser = AuthUser & {
 type AuthCtx = {
   user: AuthUser | null;
   signIn: (
-    username: string,
+    name: string,
     password: string,
   ) => { ok: true } | { ok: false; error: "invalid" };
   signUp: (
     name: string,
-    username: string,
     password: string,
   ) => { ok: true } | { ok: false; error: "exists" };
   signInWithProvider: (
@@ -60,6 +58,25 @@ const providerLabels: Record<AuthProviderName, string> = {
 
 function buildProviderUser(provider: AuthProviderName): StoredUser {
   const label = providerLabels[provider];
+
+  if (provider === "google") {
+    return {
+      id: crypto.randomUUID(),
+      name: "Trinita",
+      email: "utrinita22@gmail.com",
+      provider,
+      password: "social-auth",
+    };
+  } else if (provider === "instagram") {
+    return {
+      id: crypto.randomUUID(),
+      name: "Trinita",
+      email: "utrinita22@instagram.com",
+      provider,
+      password: "social-auth",
+    };
+  }
+
   const suffix = `${label.toLowerCase().replace(/\s+/g, "")}.local`;
   const email = `${provider}@${suffix}`;
 
@@ -67,7 +84,6 @@ function buildProviderUser(provider: AuthProviderName): StoredUser {
     id: crypto.randomUUID(),
     name: `${label} user`,
     email,
-    username: email,
     provider,
     password: "social-auth",
   };
@@ -114,7 +130,7 @@ function readCurrentUser(): AuthUser | null {
 }
 
 function subscribe(callback: () => void) {
-  if (typeof window === "undefined") return () => {};
+  if (typeof window === "undefined") return () => { };
 
   window.addEventListener("storage", callback);
   window.addEventListener(AUTH_EVENT, callback);
@@ -158,13 +174,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(
-    (username: string, password: string) => {
+    (name: string, password: string) => {
       const users = readUsers();
 
       const found = users.find(
         (u) =>
-          (u.username || u.email || "").toLowerCase() ===
-            username.trim().toLowerCase() &&
+          ((u.name || "").toLowerCase() === name.trim().toLowerCase() ||
+            (u as any).username?.toLowerCase() === name.trim().toLowerCase() ||
+            (u.email || "").toLowerCase() === name.trim().toLowerCase()) &&
           u.password === password,
       );
 
@@ -177,9 +194,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       persist({
         id: found.id,
-        name: found.name,
-        email: found.email || `${found.username}@inziranavix.local`,
-        username: found.username || found.email || "user",
+        name: found.name || (found as any).username || "User",
+        email: found.email || `${(found as any).username || "user"}@inziranavix.local`,
         provider: found.provider,
       });
 
@@ -189,15 +205,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback(
-    (name: string, username: string, password: string) => {
+    (name: string, password: string) => {
       const users = readUsers();
-      const safeUsername = username.trim();
+      const safeName = name.trim();
 
       if (
         users.some(
           (u) =>
-            (u.username || u.email || "").toLowerCase() ===
-            safeUsername.toLowerCase(),
+            (u.name || "").toLowerCase() === safeName.toLowerCase() ||
+            ((u as any).username || "").toLowerCase() === safeName.toLowerCase(),
         )
       ) {
         return {
@@ -208,9 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const nu: StoredUser = {
         id: crypto.randomUUID(),
-        name,
-        username: safeUsername,
-        email: `${safeUsername}@inziranavix.local`,
+        name: safeName,
+        email: `${safeName.replace(/\s+/g, "").toLowerCase()}@inziranavix.local`,
         password,
       };
 
@@ -221,7 +236,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: nu.id,
         name: nu.name,
         email: nu.email,
-        username: nu.username,
       });
 
       return { ok: true as const };
@@ -244,7 +258,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: existing.id,
           name: existing.name,
           email: existing.email,
-          username: existing.username || existing.email,
           provider: existing.provider,
         });
 
@@ -254,7 +267,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextUser: StoredUser = {
         ...socialUser,
         id: crypto.randomUUID(),
-        username: socialUser.email,
       };
 
       users.push(nextUser);
@@ -264,7 +276,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: nextUser.id,
         name: nextUser.name,
         email: nextUser.email,
-        username: nextUser.username,
         provider: nextUser.provider,
       });
 
