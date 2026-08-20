@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SessionProvider } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -28,15 +29,16 @@ function ClientInit() {
 function AuthGate() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (status === "loading") return;
     if (user || PUBLIC_PATHS.has(pathname)) return;
 
     const redirect = pathname && pathname !== "/" ? pathname : "/";
     router.replace(`/auth?redirect=${encodeURIComponent(redirect)}`);
-  }, [pathname, router, user]);
+  }, [pathname, router, user, status]);
 
   return null;
 }
@@ -64,11 +66,19 @@ function PublicLayout({ children }: { children: ReactNode }) {
 }
 
 function LayoutRouter({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const pathname = usePathname();
 
   const isAuthPage = pathname === "/auth";
   const isPublicPage = PUBLIC_PATHS.has(pathname);
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (isAuthPage) {
     return (
@@ -90,13 +100,15 @@ export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ClientInit />
-        <AuthGate />
-        <LayoutRouter>{children}</LayoutRouter>
-        <AiAssistant />
-      </AuthProvider>
-    </QueryClientProvider>
+    <SessionProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <ClientInit />
+          <AuthGate />
+          <LayoutRouter>{children}</LayoutRouter>
+          <AiAssistant />
+        </AuthProvider>
+      </QueryClientProvider>
+    </SessionProvider>
   );
 }

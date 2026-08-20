@@ -11,9 +11,6 @@ import {
   Mail,
   User as UserIcon,
   Lock,
-  Camera,
-  Briefcase,
-  MessageCircle,
   LogOut,
   Bell,
   BrainCircuit,
@@ -161,15 +158,26 @@ function AccountDashboard({ user }: { user: AuthUser }) {
   );
 }
 
+const PROVIDER_LOADING_LABELS: Record<AuthProviderName, string> = {
+  google: "Connecting to Google...",
+  instagram: "Connecting to Instagram...",
+  linkedin: "Connecting to LinkedIn...",
+  slack: "Connecting to Slack...",
+  whatsapp: "Connecting to WhatsApp...",
+};
+
 export function AuthPage() {
   const { t } = useTranslation();
   const { user, signIn, signUp, signInWithProvider } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<"in" | "up">("up");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loadingProvider, setLoadingProvider] = useState<AuthProviderName | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   if (user) {
     return <AccountDashboard user={user} />;
@@ -189,36 +197,79 @@ export function AuthPage() {
       { key: "whatsapp", label: "Continue with WhatsApp", description: "Use your WhatsApp account", icon: <WhatsAppIcon className="h-5 w-5" />, accent: "#25d366" },
     ];
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const rawRedirect = new URL(window.location.href).searchParams.get("redirect");
-    const redirectTo = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
+    setSubmitting(true);
 
-    if (mode === "in") {
-      if (!name || !password) return setError(t("auth.errFields"));
-      const r = signIn(name, password);
-      if (!r.ok) return setError(t("auth.errInvalid"));
+    try {
+      const rawRedirect = new URL(window.location.href).searchParams.get("redirect");
+      const redirectTo = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
+
+      if (mode === "in") {
+        if (!email || !password) {
+          setError(t("auth.errFields"));
+          setSubmitting(false);
+          return;
+        }
+
+        const r = await signIn(email, password);
+        if (!r.ok) {
+          setError(r.error || t("auth.errInvalid"));
+          setSubmitting(false);
+          return;
+        }
+
+        router.push(redirectTo);
+        return;
+      }
+
+      if (!name || !email || !password || !confirm) {
+        setError(t("auth.errFields"));
+        setSubmitting(false);
+        return;
+      }
+      if (password.length < 6) {
+        setError(t("auth.errShortPw"));
+        setSubmitting(false);
+        return;
+      }
+      if (password !== confirm) {
+        setError(t("auth.errMatch"));
+        setSubmitting(false);
+        return;
+      }
+
+      const r = await signUp(name, email, password);
+      if (!r.ok) {
+        setError(r.error || t("auth.errExists"));
+        setSubmitting(false);
+        return;
+      }
+
       router.push(redirectTo);
-      return;
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+      setSubmitting(false);
     }
-
-    if (!name || !password || !confirm) return setError(t("auth.errFields"));
-    if (password.length < 6) return setError(t("auth.errShortPw"));
-    if (password !== confirm) return setError(t("auth.errMatch"));
-
-    const r = signUp(name, password);
-    if (!r.ok) return setError(t("auth.errExists"));
-    router.push(redirectTo);
   }
 
-  function handleProvider(provider: AuthProviderName) {
+  async function handleProvider(provider: AuthProviderName) {
     setError(null);
-    const rawRedirect = new URL(window.location.href).searchParams.get("redirect");
-    const redirectTo = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
-    const r = signInWithProvider(provider);
-    if (!r.ok) return setError(t("auth.errInvalid"));
-    router.push(redirectTo);
+    setLoadingProvider(provider);
+
+    try {
+      const rawRedirect = new URL(window.location.href).searchParams.get("redirect");
+      const redirectTo = rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
+      await signInWithProvider(provider, redirectTo);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Authentication failed. Please try again.";
+      setError(message);
+      setLoadingProvider(null);
+    }
   }
 
   return (
@@ -266,7 +317,10 @@ export function AuthPage() {
         </h2>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <Field icon={<UserIcon className="h-4 w-4" />} label={t("auth.name")} type="text" value={name} onChange={setName} autoComplete="name" />
+          {mode === "up" && (
+            <Field icon={<UserIcon className="h-4 w-4" />} label={t("auth.name")} type="text" value={name} onChange={setName} autoComplete="name" />
+          )}
+          <Field icon={<Mail className="h-4 w-4" />} label={t("auth.email") || "Email"} type="email" value={email} onChange={setEmail} autoComplete="email" />
           <Field icon={<Lock className="h-4 w-4" />} label={t("auth.password")} type="password" value={password} onChange={setPassword} autoComplete={mode === "in" ? "current-password" : "new-password"} />
           {mode === "up" && (
             <Field icon={<Lock className="h-4 w-4" />} label={t("auth.confirm")} type="password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
@@ -280,9 +334,13 @@ export function AuthPage() {
 
           <button
             type="submit"
-            className="press w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)]"
+            disabled={submitting}
+            className="press w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] disabled:opacity-60"
           >
-            {mode === "in" ? t("auth.signIn") : t("auth.signUp")}
+            {submitting
+              ? (mode === "in" ? "Signing in..." : "Creating account...")
+              : (mode === "in" ? t("auth.signIn") : t("auth.signUp"))
+            }
           </button>
 
           <p className="text-center text-xs text-muted-foreground">{t("auth.terms")}</p>
@@ -296,25 +354,37 @@ export function AuthPage() {
           </div>
 
           <div className="space-y-3">
-            {socialOptions.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => handleProvider(option.key)}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-lg text-white" style={{ background: option.accent }}>
-                    {option.icon}
+            {socialOptions.map((option) => {
+              const isLoading = loadingProvider === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  disabled={loadingProvider !== null}
+                  onClick={() => handleProvider(option.key)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted disabled:opacity-60"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg text-white" style={{ background: option.accent }}>
+                      {option.icon}
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">
+                        {isLoading ? PROVIDER_LOADING_LABELS[option.key] : option.label}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">{option.description}</span>
+                    </span>
                   </span>
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">{option.label}</span>
-                    <span className="block text-xs text-muted-foreground">{option.description}</span>
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {isLoading ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                    ) : (
+                      "Go"
+                    )}
                   </span>
-                </span>
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Go</span>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
 

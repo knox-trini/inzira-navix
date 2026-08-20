@@ -4,14 +4,21 @@ import {
   createContext,
   useCallback,
   useContext,
-  useSyncExternalStore,
+  useState,
+  useEffect,
   type ReactNode,
 } from "react";
+import {
+  signIn as nextAuthSignIn,
+  signOut as nextAuthSignOut,
+  useSession,
+} from "next-auth/react";
 
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  image?: string | null;
   provider?: AuthProviderName;
 };
 
@@ -22,276 +29,157 @@ export type AuthProviderName =
   | "slack"
   | "whatsapp";
 
-type StoredUser = AuthUser & {
-  password?: string;
-};
-
 type AuthCtx = {
   user: AuthUser | null;
+  status: "loading" | "authenticated" | "unauthenticated";
   signIn: (
-    name: string,
+    email: string,
     password: string,
-  ) => { ok: true } | { ok: false; error: "invalid" };
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   signUp: (
     name: string,
+    email: string,
     password: string,
-  ) => { ok: true } | { ok: false; error: "exists" };
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   signInWithProvider: (
     provider: AuthProviderName,
-  ) => { ok: true } | { ok: false; error: "invalid" };
-  signOut: () => void;
+    redirectTo?: string,
+  ) => Promise<void>;
+  signOut: () => Promise<void>;
+  providerConfig: Record<string, boolean>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const USERS_KEY = "inzira.users";
-const CURRENT_KEY = "inzira.currentUser";
-const AUTH_EVENT = "inzira-auth";
-
-const providerLabels: Record<AuthProviderName, string> = {
-  google: "Google",
-  instagram: "Instagram",
-  linkedin: "LinkedIn",
-  slack: "Slack",
-  whatsapp: "WhatsApp",
-};
-
-function buildProviderUser(provider: AuthProviderName): StoredUser {
-  const label = providerLabels[provider];
-
-  if (provider === "google") {
-    return {
-      id: crypto.randomUUID(),
-      name: "Trinita",
-      email: "utrinita22@gmail.com",
-      provider,
-      password: "social-auth",
-    };
-  } else if (provider === "instagram") {
-    return {
-      id: crypto.randomUUID(),
-      name: "Trinita",
-      email: "utrinita22@instagram.com",
-      provider,
-      password: "social-auth",
-    };
-  }
-
-  const suffix = `${label.toLowerCase().replace(/\s+/g, "")}.local`;
-  const email = `${provider}@${suffix}`;
-
-  return {
-    id: crypto.randomUUID(),
-    name: `${label} user`,
-    email,
-    provider,
-    password: "social-auth",
-  };
-}
-
-function readUsers(): StoredUser[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-let cachedUser: AuthUser | null = null;
-
-function readCurrentUser(): AuthUser | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = localStorage.getItem(CURRENT_KEY);
-
-    if (!raw) {
-      cachedUser = null;
-      return null;
-    }
-
-    const next = JSON.parse(raw) as AuthUser;
-
-    if (
-      !cachedUser ||
-      cachedUser.id !== next.id ||
-      cachedUser.email !== next.email ||
-      cachedUser.name !== next.name
-    ) {
-      cachedUser = next;
-    }
-
-    return cachedUser;
-  } catch {
-    return null;
-  }
-}
-
-function subscribe(callback: () => void) {
-  if (typeof window === "undefined") return () => { };
-
-  window.addEventListener("storage", callback);
-  window.addEventListener(AUTH_EVENT, callback);
-
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(AUTH_EVENT, callback);
-  };
-}
-
-function getSnapshot(): AuthUser | null {
-  return readCurrentUser();
-}
-
-function getServerSnapshot(): AuthUser | null {
-  return null;
-}
-
-function notify() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(AUTH_EVENT));
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const user = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot,
-  );
+  const { data: session, status } = useSession();
+  const [providerConfig, setProviderConfig] = useState<Record<string, boolean>>({});
 
-  const persist = useCallback((u: AuthUser | null) => {
-    if (u) {
-      localStorage.setItem(CURRENT_KEY, JSON.stringify(u));
-    } else {
-      localStorage.removeItem(CURRENT_KEY);
-    }
-
-    cachedUser = u;
-    notify();
+  useEffect(() => {
+    fetch("/api/auth/providers")
+      .then((r) => r.json())
+      .then((data) => setProviderConfig(data))
+      .catch(() => {});
   }, []);
 
+  const user: AuthUser | null =
+    status === "authenticated" && session?.user
+      ? {
+          id: session.user.id,
+          name: session.user.name || "",
+          email: session.user.email || "",
+          image: session.user.image,
+          provider: session.user.provider as AuthProviderName | undefined,
+        }
+      : null;
+
   const signIn = useCallback(
-    (name: string, password: string) => {
-      const users = readUsers();
+    async (
+      email: string,
+      password: string,
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      try {
+        const result = await nextAuthSignIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
 
-      const found = users.find(
-        (u) =>
-          ((u.name || "").toLowerCase() === name.trim().toLowerCase() ||
-            (u as any).username?.toLowerCase() === name.trim().toLowerCase() ||
-            (u.email || "").toLowerCase() === name.trim().toLowerCase()) &&
-          u.password === password,
-      );
+        if (result?.error) {
+          return { ok: false, error: "Invalid email or password." };
+        }
 
-      if (!found) {
-        return {
-          ok: false as const,
-          error: "invalid" as const,
-        };
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "Unable to connect. Please try again." };
       }
-
-      persist({
-        id: found.id,
-        name: found.name || (found as any).username || "User",
-        email: found.email || `${(found as any).username || "user"}@inziranavix.local`,
-        provider: found.provider,
-      });
-
-      return { ok: true as const };
     },
-    [persist],
+    [],
   );
 
   const signUp = useCallback(
-    (name: string, password: string) => {
-      const users = readUsers();
-      const safeName = name.trim();
+    async (
+      name: string,
+      email: string,
+      password: string,
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
 
-      if (
-        users.some(
-          (u) =>
-            (u.name || "").toLowerCase() === safeName.toLowerCase() ||
-            ((u as any).username || "").toLowerCase() === safeName.toLowerCase(),
-        )
-      ) {
-        return {
-          ok: false as const,
-          error: "exists" as const,
-        };
+        const data = await res.json();
+
+        if (!res.ok) {
+          return { ok: false, error: data.error || "Signup failed." };
+        }
+
+        const result = await nextAuthSignIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
+
+        if (result?.error) {
+          return {
+            ok: false,
+            error: "Account created but sign-in failed. Please sign in manually.",
+          };
+        }
+
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "Unable to connect. Please try again." };
       }
-
-      const nu: StoredUser = {
-        id: crypto.randomUUID(),
-        name: safeName,
-        email: `${safeName.replace(/\s+/g, "").toLowerCase()}@inziranavix.local`,
-        password,
-      };
-
-      users.push(nu);
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
-
-      persist({
-        id: nu.id,
-        name: nu.name,
-        email: nu.email,
-      });
-
-      return { ok: true as const };
     },
-    [persist],
+    [],
   );
 
   const signInWithProvider = useCallback(
-    (provider: AuthProviderName) => {
-      const users = readUsers();
-      const socialUser = buildProviderUser(provider);
-
-      const existing = users.find(
-        (u) =>
-          u.email.toLowerCase() === socialUser.email.toLowerCase(),
-      );
-
-      if (existing) {
-        persist({
-          id: existing.id,
-          name: existing.name,
-          email: existing.email,
-          provider: existing.provider,
-        });
-
-        return { ok: true as const };
+    async (provider: AuthProviderName, redirectTo?: string): Promise<void> => {
+      if (provider === "instagram") {
+        throw new Error(
+          "Instagram sign-in is currently unavailable. Please use Google, LinkedIn, Slack, or email.",
+        );
       }
 
-      const nextUser: StoredUser = {
-        ...socialUser,
-        id: crypto.randomUUID(),
-      };
+      if (provider === "whatsapp") {
+        throw new Error(
+          "WhatsApp sign-in is not currently available.",
+        );
+      }
 
-      users.push(nextUser);
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      const configured = providerConfig[provider];
+      if (configured === false) {
+        throw new Error(
+          `${provider.charAt(0).toUpperCase() + provider.slice(1)} authentication is not configured.`,
+        );
+      }
 
-      persist({
-        id: nextUser.id,
-        name: nextUser.name,
-        email: nextUser.email,
-        provider: nextUser.provider,
+      const callbackUrl = redirectTo || "/";
+
+      await nextAuthSignIn(provider, {
+        callbackUrl,
+        redirect: true,
       });
-
-      return { ok: true as const };
     },
-    [persist],
+    [providerConfig],
   );
 
-  const signOut = useCallback(() => persist(null), [persist]);
+  const signOut = useCallback(async () => {
+    await nextAuthSignOut({ callbackUrl: "/auth" });
+  }, []);
 
   const value: AuthCtx = {
     user,
+    status,
     signIn,
     signUp,
     signInWithProvider,
     signOut,
+    providerConfig,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

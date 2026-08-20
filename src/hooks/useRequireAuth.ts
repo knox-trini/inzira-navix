@@ -7,13 +7,14 @@ import { useAuth } from "./useAuth";
 export function useRequireAuth() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
 
   useEffect(() => {
+    if (status === "loading") return;
     if (!user) {
       router.replace(`/auth?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [user, pathname, router]);
+  }, [user, status, pathname, router]);
 
   return user !== null;
 }
