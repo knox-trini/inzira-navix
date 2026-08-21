@@ -22,6 +22,11 @@ build
 *.local
 .DS_Store
 
+# Secrets & local data
+.env
+.env.*
+.data
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
