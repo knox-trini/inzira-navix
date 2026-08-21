@@ -71,8 +71,24 @@ export function AiAssistant() {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const autoOpenedRef = useRef(false);
 
   const suggestions = getSuggestions(pathname);
+
+  // Auto-open on the landing page
+  useEffect(() => {
+    if (!autoOpenedRef.current && pathname === "/") {
+      setOpen(true);
+      autoOpenedRef.current = true;
+    }
+  }, [pathname]);
+
+  // Open when requested (e.g. top nav AI button)
+  useEffect(() => {
+    const open = () => setOpen(true);
+    document.addEventListener("open-ai-assistant", open);
+    return () => document.removeEventListener("open-ai-assistant", open);
+  }, []);
 
   // Auto-scroll
   useEffect(() => {

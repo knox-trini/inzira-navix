@@ -22,7 +22,6 @@ export function SiteHeader() {
     { href: "/planner", label: t("nav.planner") },
     { href: "/tracking", label: t("nav.live") },
     { href: "/updates", label: t("nav.updates") },
-    { href: "/about", label: t("nav.about") },
   ] as const;
 
   function isActive(href: string) {

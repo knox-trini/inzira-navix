@@ -13,7 +13,7 @@ import { AppSidebar } from "./AppSidebar";
 import { AppTopNav } from "./AppTopNav";
 import { AiAssistant } from "./ai/AiAssistant";
 
-const PUBLIC_PATHS = new Set(["/", "/auth", "/about", "/contact", "/privacy", "/terms"]);
+const PUBLIC_PATHS = new Set(["/", "/auth", "/privacy", "/terms"]);
 
 function ClientInit() {
   useEffect(() => {

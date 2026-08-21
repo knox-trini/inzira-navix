@@ -18,8 +18,6 @@ export function PublicHeader() {
     { href: "/#features", label: t("landing.nav.features") },
     { href: "/#how-it-works", label: t("landing.nav.howItWorks") },
     { href: "/#ai-assistant", label: t("landing.nav.aiAssistant") },
-    { href: "/about", label: t("landing.nav.about") },
-    { href: "/contact", label: t("landing.nav.contact") },
   ] as const;
 
   return (

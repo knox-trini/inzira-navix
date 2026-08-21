@@ -19,7 +19,6 @@ export async function GET() {
     { path: "/predictions", changefreq: "daily", priority: "0.6" },
     { path: "/tickets", changefreq: "daily", priority: "0.7" },
     { path: "/fleet", changefreq: "daily", priority: "0.5" },
-    { path: "/about", changefreq: "monthly", priority: "0.6" },
   ];
 
   const urls = entries.map((e) =>

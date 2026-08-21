@@ -335,13 +335,6 @@ export function HomePage() {
             <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
               {t("home.problemBody")}
             </p>
-            <Link
-              href="/about"
-              className="press group mt-8 inline-flex items-center gap-2 rounded-xl border border-foreground/15 bg-card px-6 py-3 text-sm font-bold text-foreground transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground"
-            >
-              {t("home.problemCta")}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {problems.map((p, i) => {
@@ -460,9 +453,6 @@ export function HomePage() {
                 {t("home.roadmapTitle")}
               </h2>
             </div>
-            <Link href="/about#roadmap" className="text-sm font-bold text-primary hover:underline">
-              {t("home.fullRoadmap")}
-            </Link>
           </div>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {phases.map((ph, i) => (

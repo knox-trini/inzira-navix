@@ -31,8 +31,6 @@ const exploreLinks = [
 ] as const;
 
 const companyLinks = [
-  { href: "/about", key: "about" },
-  { href: "/about#roadmap", key: "roadmap" },
   { href: "mailto:hello@inzira.app", key: "contact" },
 ] as const;
 
